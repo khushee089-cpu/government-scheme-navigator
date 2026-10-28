@@ -5,6 +5,7 @@ Main Application File (Streamlit)
 """
 
 import os
+import textwrap
 import streamlit as st
 import pandas as pd
 from typing import Dict, Any, List
@@ -29,6 +30,7 @@ from modules.demo_profiles import (
     get_demo_profile
 )
 from modules.translations import t
+from modules.hindi_content import DOCUMENT_CATEGORY_HI, localize_category, localize_condition, localize_document, localize_profile_value, localize_scheme
 from modules.ai_assistant import (
     ask_ai_assistant,
     explain_scheme_fit,
@@ -171,6 +173,12 @@ st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 if "lang" not in st.session_state:
     st.session_state["lang"] = "en"
 
+if "nav" not in st.session_state:
+    st.session_state["nav"] = "home"
+
+def navigate_to(page):
+    st.session_state["nav"] = page
+
 if "user_profile" not in st.session_state:
     st.session_state["user_profile"] = {
         "age": 30,
@@ -243,20 +251,26 @@ with st.sidebar:
         if os.path.exists("assets/logo.png"):
             st.image("assets/logo.png", width=75)
     with col_logo2:
-        st.markdown("#### Scheme Navigator<br/><span style='font-size:0.75rem; color:#64748b;'>Civic Tech Platform</span>", unsafe_allow_html=True)
+        st.markdown(
+            f"#### {t('app_title', st.session_state['lang'])}<br/><span style='font-size:0.75rem; color:#64748b;'>{'नागरिक प्रौद्योगिकी मंच' if st.session_state['lang'] == 'hi' else 'Civic Tech Platform'}</span>",
+            unsafe_allow_html=True
+        )
 
     st.markdown("---")
-    st.markdown("### 🇮🇳 Navigation")
+    st.markdown(f"### 🇮🇳 {'नेविगेशन' if st.session_state['lang'] == 'hi' else 'Navigation'}")
     
     # Language Toggle
     lang_choice = st.radio(
-        "Language / भाषा",
+        "भाषा / Language",
         options=["English", "हिन्दी"],
         index=0 if st.session_state["lang"] == "en" else 1,
         horizontal=True
     )
     current_lang = "hi" if lang_choice == "हिन्दी" else "en"
     st.session_state["lang"] = current_lang
+
+    def ui_text(english, hindi):
+        return hindi if current_lang == "hi" else english
 
     nav_options = [
         ("home", t("nav_home", current_lang), "🏠"),
@@ -269,26 +283,27 @@ with st.sidebar:
     ]
 
     selected_nav = st.radio(
-        "Go to",
+        ui_text("Go to", "यहां जाएं"),
         options=[opt[0] for opt in nav_options],
         format_func=lambda x: next(f"{opt[2]} {opt[1]}" for opt in nav_options if opt[0] == x),
-        label_visibility="collapsed"
+        label_visibility="collapsed",
+        key="nav"
     )
 
     st.markdown("---")
     
     # Demo Profile Quick Loader in Sidebar
-    st.markdown("### ⚡ Demo Personas")
-    st.caption("Quickly test realistic hackathon personas:")
+    st.markdown(f"### ⚡ {ui_text('Demo Personas', 'डेमो प्रोफ़ाइल')}")
+    st.caption(ui_text("Quickly test realistic hackathon personas:", "उदाहरण प्रोफ़ाइल जल्दी से आज़माएं:"))
     demo_keys = list(DEMO_PROFILES.keys())
     demo_labels = [DEMO_PROFILES[k]["label"] for k in demo_keys]
     chosen_demo_idx = st.selectbox(
-        "Select Persona",
+        ui_text("Select Persona", "डेमो प्रोफ़ाइल चुनें"),
         options=range(len(demo_keys)),
         format_func=lambda i: demo_labels[i]
     )
 
-    if st.button("Load Persona 🚀", use_container_width=True):
+    if st.button(f"{ui_text('Load Persona', 'प्रोफ़ाइल लोड करें')} 🚀", use_container_width=True):
         selected_key = demo_keys[chosen_demo_idx]
         persona_data = get_demo_profile(selected_key)
         st.session_state["user_profile"] = persona_data["profile"].copy()
@@ -303,11 +318,11 @@ with st.sidebar:
     # AI Mode status
     api_key_env = os.getenv("GEMINI_API_KEY") or os.getenv("AI_API_KEY")
     if api_key_env:
-        st.success("🟢 AI Assistant: Online (API Connected)")
+        st.success(f"🟢 {ui_text('AI Assistant: Online (API Connected)', 'एआई सहायक: ऑनलाइन (एपीआई जुड़ा है)')}")
     else:
-        st.info("🔵 AI Assistant: Offline Grounded Mode (Zero-cost, 100% reliable)")
+        st.info(f"🔵 {ui_text('AI Assistant: Offline Grounded Mode (Zero-cost, 100% reliable)', 'एआई सहायक: ऑफलाइन मोड (निःशुल्क, उपलब्ध जानकारी पर आधारित)')}")
 
-    st.caption("v1.0.0 • College Hackathon Edition")
+    st.caption(ui_text("v1.0.0 • College Hackathon Edition", "v1.0.0 • कॉलेज हैकाथॉन संस्करण"))
 
 # -----------------------------------------------------------------------------
 # 4. View 1: Home (Landing Page)
@@ -329,9 +344,9 @@ if selected_nav == "home":
         st.markdown(
             f"""
             <div class="metric-card">
-                <div class="metric-lbl">Verified Schemes</div>
+                <div class="metric-lbl">{ui_text('Verified Schemes', 'सत्यापित योजनाएं')}</div>
                 <div class="metric-val" style="color: #1e3a8a;">{len(ALL_SCHEMES)}</div>
-                <div style="font-size: 0.8rem; color: #64748b;">Central & State Portals</div>
+                <div style="font-size: 0.8rem; color: #64748b;">{ui_text('Central & State Portals', 'केंद्र और राज्य की योजनाएं')}</div>
             </div>
             """,
             unsafe_allow_html=True
@@ -343,7 +358,7 @@ if selected_nav == "home":
             <div class="metric-card">
                 <div class="metric-lbl">{t('metric_eligible', current_lang)}</div>
                 <div class="metric-val" style="color: #16a34a;">{pot_count}</div>
-                <div style="font-size: 0.8rem; color: #64748b;">For Active Profile</div>
+                <div style="font-size: 0.8rem; color: #64748b;">{ui_text('For Active Profile', 'वर्तमान प्रोफ़ाइल के लिए')}</div>
             </div>
             """,
             unsafe_allow_html=True
@@ -352,9 +367,9 @@ if selected_nav == "home":
         st.markdown(
             f"""
             <div class="metric-card">
-                <div class="metric-lbl">Rule Engine</div>
+                <div class="metric-lbl">{ui_text('Rule Engine', 'नियम-आधारित जांच')}</div>
                 <div class="metric-val" style="color: #0284c7;">100%</div>
-                <div style="font-size: 0.8rem; color: #64748b;">Deterministic & Grounded</div>
+                <div style="font-size: 0.8rem; color: #64748b;">{ui_text('Deterministic & Grounded', 'नियमों और उपलब्ध जानकारी पर आधारित')}</div>
             </div>
             """,
             unsafe_allow_html=True
@@ -363,9 +378,9 @@ if selected_nav == "home":
         st.markdown(
             f"""
             <div class="metric-card">
-                <div class="metric-lbl">Languages</div>
+                <div class="metric-lbl">{ui_text('Languages', 'भाषाएं')}</div>
                 <div class="metric-val" style="color: #7c3aed;">2</div>
-                <div style="font-size: 0.8rem; color: #64748b;">English & हिन्दी Supported</div>
+                <div style="font-size: 0.8rem; color: #64748b;">{ui_text('English & हिन्दी Supported', 'हिंदी और अंग्रेज़ी उपलब्ध')}</div>
             </div>
             """,
             unsafe_allow_html=True
@@ -374,52 +389,56 @@ if selected_nav == "home":
     st.markdown("<br/>", unsafe_allow_html=True)
 
     # 4-Step Visual Journey
-    st.subheader("How It Works: 4 Easy Steps to Your Benefits")
+    st.subheader(ui_text("How It Works: 4 Easy Steps to Your Benefits", "यह कैसे काम करता है: लाभ पाने के 4 आसान चरण"))
     step1, step2, step3, step4 = st.columns(4)
     with step1:
-        st.markdown("##### 1. Fill Profile")
-        st.write("Share basic details like age, occupation, state, and income. No sensitive personal data or OTPs needed.")
+        st.markdown(f"##### {ui_text('1. Fill Profile', '1. प्रोफ़ाइल भरें')}")
+        st.write(ui_text("Share basic details like age, occupation, state, and income. No sensitive personal data or OTPs needed.", "आयु, व्यवसाय, राज्य और आय जैसी सामान्य जानकारी दें। आधार संख्या, बैंक विवरण या ओटीपी की आवश्यकता नहीं है।"))
     with step2:
-        st.markdown("##### 2. Rule Evaluation")
-        st.write("Our deterministic engine tests all official eligibility conditions and highlights satisfied vs unsatisfied rules.")
+        st.markdown(f"##### {ui_text('2. Rule Evaluation', '2. नियमों के अनुसार जांच')}")
+        st.write(ui_text("Our deterministic engine tests all official eligibility conditions and highlights satisfied vs unsatisfied rules.", "नियम-आधारित प्रणाली पात्रता की शर्तों की जांच करके पूरी और अधूरी शर्तें दिखाती है।"))
     with step3:
-        st.markdown("##### 3. Get Checklist")
-        st.write("Review all required paperwork, explanations, and download a professional PDF summary.")
+        st.markdown(f"##### {ui_text('3. Get Checklist', '3. दस्तावेज़ सूची देखें')}")
+        st.write(ui_text("Review all required paperwork, explanations, and download a professional PDF summary.", "आवश्यक दस्तावेज़ों की सूची देखें और उसकी पीडीएफ प्रति डाउनलोड करें।"))
     with step4:
-        st.markdown("##### 4. Apply Officially")
-        st.write("Directly visit official verified government portals (.gov.in / .nic.in) to complete your application safely.")
+        st.markdown(f"##### {ui_text('4. Apply Officially', '4. आधिकारिक पोर्टल पर आवेदन करें')}")
+        st.write(ui_text("Directly visit official verified government portals (.gov.in / .nic.in) to complete your application safely.", "आवेदन पूरा करने के लिए सत्यापित सरकारी पोर्टल (.gov.in / .nic.in) पर जाएं।"))
 
     st.markdown("---")
 
     # Quick Action Callouts
     c_btn1, c_btn2, c_btn3 = st.columns([1, 1, 1])
     with c_btn1:
-        if st.button("📝 Start Finding Schemes", use_container_width=True, type="primary"):
-            st.session_state["nav"] = "find_schemes"
-            st.rerun()
+        st.button(
+            f"📝 {ui_text('Start Finding Schemes', 'योजनाएं खोजना शुरू करें')}", use_container_width=True, type="primary",
+            on_click=navigate_to, args=("find_schemes",)
+        )
     with c_btn2:
-        if st.button("🔍 Browse Scheme Explorer", use_container_width=True):
-            st.session_state["nav"] = "explorer"
-            st.rerun()
+        st.button(
+            f"🔍 {ui_text('Browse Scheme Explorer', 'योजनाएं देखें')}", use_container_width=True,
+            on_click=navigate_to, args=("explorer",)
+        )
     with c_btn3:
-        if st.button("🤖 Talk to AI Assistant", use_container_width=True):
-            st.session_state["nav"] = "ai_assistant"
-            st.rerun()
+        st.button(
+            f"🤖 {ui_text('Talk to AI Assistant', 'एआई सहायक से पूछें')}", use_container_width=True,
+            on_click=navigate_to, args=("ai_assistant",)
+        )
 
     # Featured Schemes preview
     st.markdown("<br/>", unsafe_allow_html=True)
-    st.subheader("Featured National Welfare Programs")
+    st.subheader(ui_text("Featured National Welfare Programs", "प्रमुख राष्ट्रीय कल्याण योजनाएं"))
     f_cols = st.columns(3)
     for idx, sch in enumerate(ALL_SCHEMES[:3]):
+        display_sch = localize_scheme(sch, current_lang)
         with f_cols[idx]:
             st.markdown(
                 f"""
                 <div class="scheme-card" style="min-height: 220px;">
-                    <span class="badge badge-central">{sch['scheme_level']}</span>
-                    <span class="badge badge-category">{sch['category']}</span>
-                    <h4 style="margin: 0.5rem 0 0.3rem 0; color: #1e3a8a;">{sch['name']}</h4>
-                    <p style="font-size: 0.85rem; color: #475569; margin-bottom: 0.5rem;">{sch['short_description'][:130]}...</p>
-                    <p style="font-size: 0.85rem; font-weight: 600; color: #0f766e;">Benefit: {sch['benefits'][:90]}...</p>
+                    <span class="badge badge-central">{ui_text('Central', 'केंद्र')}</span>
+                    <span class="badge badge-category">{display_sch['category']}</span>
+                    <h4 style="margin: 0.5rem 0 0.3rem 0; color: #1e3a8a;">{display_sch.get('name', sch['name'])}</h4>
+                    <p style="font-size: 0.85rem; color: #475569; margin-bottom: 0.5rem;">{display_sch['short_description'][:130]}...</p>
+                    <p style="font-size: 0.85rem; font-weight: 600; color: #0f766e;">{ui_text('Benefit', 'लाभ')}: {display_sch['benefits'][:90]}...</p>
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -433,24 +452,24 @@ elif selected_nav == "find_schemes":
     st.write(t("form_subtext", current_lang))
 
     # Fast demo profile filler bar
-    with st.expander("✨ Need a quick test profile? Select a Demo Persona", expanded=False):
+    with st.expander(f"✨ {ui_text('Need a quick test profile? Select a Demo Persona', 'जल्दी जांचने के लिए डेमो प्रोफ़ाइल चुनें')}", expanded=False):
         d_cols = st.columns([3, 1])
         with d_cols[0]:
             quick_demo = st.selectbox(
-                "Choose Persona",
+                ui_text("Choose Persona", "प्रोफ़ाइल चुनें"),
                 options=list(DEMO_PROFILES.keys()),
                 format_func=lambda k: f"{DEMO_PROFILES[k]['label']} - {DEMO_PROFILES[k]['description']}"
             )
         with d_cols[1]:
             st.write("")
             st.write("")
-            if st.button("Apply Profile", use_container_width=True):
+            if st.button(ui_text("Apply Profile", "प्रोफ़ाइल लागू करें"), use_container_width=True):
                 st.session_state["user_profile"] = DEMO_PROFILES[quick_demo]["profile"].copy()
                 st.session_state["evaluated_schemes"] = evaluate_all_schemes(
                     st.session_state["user_profile"],
                     ALL_SCHEMES
                 )
-                st.success(f"Applied profile for {DEMO_PROFILES[quick_demo]['label']}!")
+                st.success(f"{ui_text('Applied profile for', 'डेमो प्रोफ़ाइल लागू हुई:')} {DEMO_PROFILES[quick_demo]['label']}!")
                 st.rerun()
 
     prof = st.session_state["user_profile"]
@@ -465,7 +484,7 @@ elif selected_nav == "find_schemes":
                 min_value=0,
                 max_value=120,
                 value=int(prof.get("age", 25)),
-                help="Age in completed years. Used to check minimum and maximum age criteria."
+                help=ui_text("Age in completed years. Used to check minimum and maximum age criteria.", "पूरे किए गए वर्षों में आयु दर्ज करें। इसका उपयोग न्यूनतम और अधिकतम आयु की शर्त जांचने के लिए होता है।")
             )
 
         with col_d2:
@@ -617,17 +636,17 @@ elif selected_nav == "find_schemes":
             is_tax_payer = st.checkbox(
                 t("label_tax_payer", current_lang),
                 value=bool(prof.get("is_tax_payer", False)),
-                help="Many social pensions and DBT schemes exclude individuals who file income tax."
+                help=ui_text("Many social pensions and DBT schemes exclude individuals who file income tax.", "कई सामाजिक पेंशन और डीबीटी योजनाओं में आयकर देने वाले व्यक्ति पात्र नहीं होते।")
             )
             has_lpg = st.checkbox(
                 t("label_lpg", current_lang),
                 value=bool(prof.get("has_lpg_connection", False)),
-                help="PM Ujjwala requires applicant household to have no existing LPG connection."
+                help=ui_text("PM Ujjwala requires applicant household to have no existing LPG connection.", "पीएम उज्ज्वला के लिए आवेदक के परिवार के पास पहले से एलपीजी कनेक्शन नहीं होना चाहिए।")
             )
             owns_pucca = st.checkbox(
                 t("label_pucca_house", current_lang),
                 value=bool(prof.get("owns_pucca_house", False)),
-                help="PMAY housing grants require that family does not own a permanent pucca house."
+                help=ui_text("PMAY housing grants require that family does not own a permanent pucca house.", "पीएमएवाई आवास सहायता के लिए परिवार के पास पक्का मकान नहीं होना चाहिए।")
             )
 
         st.markdown("<br/>", unsafe_allow_html=True)
@@ -658,7 +677,7 @@ elif selected_nav == "find_schemes":
         }
         st.session_state["user_profile"] = updated_profile
         st.session_state["evaluated_schemes"] = evaluate_all_schemes(updated_profile, ALL_SCHEMES)
-        st.toast("Profile updated and schemes evaluated!", icon="🎯")
+        st.toast(ui_text("Profile updated and schemes evaluated!", "प्रोफ़ाइल अपडेट हुई और योजनाओं की जांच पूरी हुई!"), icon="🎯")
         st.success("✅ Profile evaluation completed! Review your recommendations below or click 'Eligibility Results' in navigation.")
 
     if reset_clicked:
@@ -684,7 +703,7 @@ elif selected_nav == "find_schemes":
             st.session_state["user_profile"],
             ALL_SCHEMES
         )
-        st.info("Profile has been reset to defaults.")
+        st.info(ui_text("Profile has been reset to defaults.", "प्रोफ़ाइल डिफ़ॉल्ट जानकारी पर रीसेट कर दी गई है।"))
         st.rerun()
 
 # -----------------------------------------------------------------------------
@@ -692,21 +711,26 @@ elif selected_nav == "find_schemes":
 # -----------------------------------------------------------------------------
 elif selected_nav == "explorer":
     st.subheader(f"🔍 {t('nav_explorer', current_lang)}")
-    st.write("Browse and search the verified Indian Government Scheme dataset without needing to fill a profile.")
+    st.write(ui_text("Browse and search the verified Indian Government Scheme dataset without needing to fill a profile.", "प्रोफ़ाइल भरे बिना सत्यापित सरकारी योजनाओं की सूची खोजें और देखें।"))
 
     # Filter Bar
     c_f1, c_f2, c_f3 = st.columns([2, 1, 1])
     with c_f1:
         search_query = st.text_input(
-            "Search",
+            ui_text("Search", "खोजें"),
             placeholder=t("search_placeholder", current_lang),
             label_visibility="collapsed"
         )
     with c_f2:
         categories = ["All Categories"] + get_categories(ALL_SCHEMES)
-        sel_cat = st.selectbox("Category Filter", options=categories, label_visibility="collapsed")
+        sel_cat = st.selectbox(
+            ui_text("Category Filter", "श्रेणी फ़िल्टर"),
+            options=categories,
+            format_func=lambda value: ui_text("All Categories", "सभी श्रेणियां") if value == "All Categories" else localize_category(value, current_lang),
+            label_visibility="collapsed"
+        )
     with c_f3:
-        level_filter = st.selectbox("Scheme Level", options=["All Levels", "Central", "State"], label_visibility="collapsed")
+        level_filter = st.selectbox(ui_text("Scheme Level", "योजना का स्तर"), options=[ui_text("All Levels", "सभी स्तर"), "Central", "State"], format_func=lambda value: {"Central": ui_text("Central", "केंद्र"), "State": ui_text("State", "राज्य")}.get(value, value), label_visibility="collapsed")
 
     # Apply Filters
     filtered_list = ALL_SCHEMES
@@ -721,43 +745,43 @@ elif selected_nav == "explorer":
         ]
     if sel_cat != "All Categories":
         filtered_list = [s for s in filtered_list if s.get("category") == sel_cat]
-    if level_filter != "All Levels":
+    if level_filter != ui_text("All Levels", "सभी स्तर"):
         filtered_list = [s for s in filtered_list if s.get("scheme_level") == level_filter]
 
-    st.caption(f"Showing **{len(filtered_list)}** schemes:")
+    st.caption(f"{ui_text('Showing', 'दिखाई जा रही योजनाएं')}: **{len(filtered_list)}**")
 
     if not filtered_list:
         st.info(t("empty_results", current_lang))
     else:
         for sch in filtered_list:
+            display_sch = localize_scheme(sch, current_lang)
             level_badge = "badge-central" if sch["scheme_level"] == "Central" else "badge-state"
-            level_text = "केंद्रीय योजना (Central)" if (current_lang == "hi" and sch["scheme_level"] == "Central") else ("राज्य योजना (State)" if current_lang == "hi" else sch["scheme_level"])
+            level_text = "केंद्रीय योजना" if (current_lang == "hi" and sch["scheme_level"] == "Central") else ("राज्य योजना" if current_lang == "hi" else sch["scheme_level"])
             
             # Show Hindi name prominently if Hindi mode is active
-            display_name = sch.get("hindi_name") if (current_lang == "hi" and sch.get("hindi_name")) else sch["name"]
+            display_name = display_sch.get("name", sch["name"])
             secondary_name = f"<div style='font-size:0.85rem; color:#64748b;'>{sch['name']}</div>" if (current_lang == "hi" and sch.get("hindi_name")) else ""
             
             with st.container():
-                st.markdown(
-                    f"""
+                st.html(
+                    textwrap.dedent(f"""
                     <div class="scheme-card">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                             <div>
                                 <span class="badge {level_badge}">{level_text}</span>
-                                <span class="badge badge-category">{sch['category']}</span>
-                                <span class="badge" style="background-color: #dcfce7; color: #166534;">Verified: {sch['last_verification_date']}</span>
+                                <span class="badge badge-category">{display_sch['category']}</span>
+                                <span class="badge" style="background-color: #dcfce7; color: #166534;">{ui_text('Verified', 'सत्यापित')}: {sch['last_verification_date']}</span>
                                 <h3 style="margin: 0.4rem 0 0.1rem 0; color: #1e3a8a;">{display_name}</h3>
                                 {secondary_name}
-                                <div style="font-size: 0.85rem; color: #64748b; margin-top: 0.3rem; margin-bottom: 0.6rem;">🏛️ {sch['department']}</div>
+                                <div style="font-size: 0.85rem; color: #64748b; margin-top: 0.3rem; margin-bottom: 0.6rem;">🏛️ {display_sch['department']}</div>
                             </div>
                         </div>
-                        <p style="font-size: 0.92rem; color: #334155;">{sch['short_description']}</p>
+                        <p style="font-size: 0.92rem; color: #334155;">{display_sch['short_description']}</p>
                         <div style="background-color: #f8fafc; border-left: 3px solid #0f766e; padding: 0.6rem 0.8rem; border-radius: 4px; margin-bottom: 0.8rem;">
-                            <strong style="color: #0f766e;">{t('key_benefits', current_lang)}:</strong> {sch['benefits']}
+                            <strong style="color: #0f766e;">{t('key_benefits', current_lang)}:</strong> {display_sch['benefits']}
                         </div>
                     </div>
-                    """,
-                    unsafe_allow_html=True
+                    """)
                 )
 
                 expander_label = f"📋 {'पात्रता मानदंड एवं दस्तावेज़ देखें: ' if current_lang == 'hi' else 'View Eligibility Criteria & Documents for '}{display_name}"
@@ -771,14 +795,16 @@ elif selected_nav == "explorer":
                         if rules.get("max_income"):
                             st.write(f"- {'वार्षिक पारिवारिक आय सीमा:' if current_lang == 'hi' else 'Annual Income ceiling:'} ₹{rules.get('max_income'):,.0f}")
                         if rules.get("allowed_occupations"):
-                            st.write(f"- {'लक्षित व्यवसाय:' if current_lang == 'hi' else 'Target Occupations:'} {', '.join(rules.get('allowed_occupations'))}")
+                            target_occupations = ", ".join(localize_profile_value(value, current_lang) for value in rules.get("allowed_occupations"))
+                            st.write(f"- {'लक्षित व्यवसाय:' if current_lang == 'hi' else 'Target Occupations:'} {target_occupations}")
                         if rules.get("allowed_states"):
-                            st.write(f"- {'राज्य प्रयोज्यता:' if current_lang == 'hi' else 'State applicability:'} {', '.join(rules.get('allowed_states'))}")
+                            target_states = ", ".join(localize_profile_value(value, current_lang) for value in rules.get("allowed_states"))
+                            st.write(f"- {'राज्य प्रयोज्यता:' if current_lang == 'hi' else 'State applicability:'} {target_states}")
                         if rules.get("exclusions"):
                             st.write(f"- {'प्रमुख बहिष्करण:' if current_lang == 'hi' else 'Key Exclusions:'} {', '.join(rules.get('exclusions')[:2])}")
                     with col_e2:
                         st.markdown(f"**{t('documents_needed', current_lang)}:**")
-                        for d in sch.get("required_documents", []):
+                        for d in display_sch.get("required_documents", []):
                             st.write(f"- {d}")
 
                     st.markdown(
@@ -817,7 +843,7 @@ elif selected_nav == "results":
 
     evaluated = st.session_state["evaluated_schemes"]
     if not evaluated:
-        st.warning("No scheme evaluations available. Please fill out your profile in 'Find My Schemes'.")
+        st.warning(ui_text("No scheme evaluations available. Please fill out your profile in 'Find My Schemes'.", "योजनाओं की जांच उपलब्ध नहीं है। कृपया 'मेरी योजनाएं खोजें' में अपनी प्रोफ़ाइल भरें।"))
         st.stop()
 
     # Metric summary banners
@@ -861,7 +887,7 @@ elif selected_nav == "results":
         st.markdown(
             f"""
             <div class="metric-card">
-                <div class="metric-lbl">Likely Ineligible</div>
+        <div class="metric-lbl">{ui_text('Likely Ineligible', 'संभावित रूप से अपात्र')}</div>
                 <div class="metric-val" style="color: #64748b;">{inelig_count}</div>
             </div>
             """,
@@ -873,17 +899,28 @@ elif selected_nav == "results":
     # Filter Controls
     col_r1, col_r2, col_r3 = st.columns([2, 1, 1])
     with col_r1:
-        res_query = st.text_input("Filter results", placeholder="Search evaluated schemes...", label_visibility="collapsed")
+        res_query = st.text_input(ui_text("Filter results", "परिणाम फ़िल्टर करें"), placeholder=ui_text("Search evaluated schemes...", "जांची गई योजनाएं खोजें..."), label_visibility="collapsed")
     with col_r2:
         status_filter = st.selectbox(
-            "Status Filter",
+            ui_text("Status Filter", "पात्रता स्थिति"),
             options=["All Statuses", EligibilityResult.STATUS_POTENTIALLY_ELIGIBLE, EligibilityResult.STATUS_OFFICIAL_VERIFICATION, EligibilityResult.STATUS_MORE_INFO_REQUIRED, EligibilityResult.STATUS_LIKELY_INELIGIBLE],
+            format_func=lambda value: {
+                "All Statuses": ui_text("All Statuses", "सभी स्थितियां"),
+                EligibilityResult.STATUS_POTENTIALLY_ELIGIBLE: t("status_potentially_eligible", current_lang),
+                EligibilityResult.STATUS_OFFICIAL_VERIFICATION: t("status_official_verification", current_lang),
+                EligibilityResult.STATUS_MORE_INFO_REQUIRED: t("status_more_info_required", current_lang),
+                EligibilityResult.STATUS_LIKELY_INELIGIBLE: t("status_likely_ineligible", current_lang),
+            }.get(value, value),
             label_visibility="collapsed"
         )
     with col_r3:
         sort_choice = st.selectbox(
-            "Sort By",
+            ui_text("Sort By", "क्रमबद्ध करें"),
             options=["Relevance Score (Highest First)", "Scheme Name (A-Z)"],
+            format_func=lambda value: {
+                "Relevance Score (Highest First)": ui_text("Relevance Score (Highest First)", "प्रासंगिकता स्कोर (सबसे अधिक पहले)"),
+                "Scheme Name (A-Z)": ui_text("Scheme Name (A-Z)", "योजना का नाम (अ से ज्ञ)"),
+            }.get(value, value),
             label_visibility="collapsed"
         )
 
@@ -895,7 +932,7 @@ elif selected_nav == "results":
         # Default priority and relevance score
         pass
 
-    st.caption(f"Showing **{len(filtered_res)}** evaluated schemes:")
+    st.caption(f"{ui_text('Showing', 'दिखाई जा रही योजनाएं')}: **{len(filtered_res)}**")
 
     if not filtered_res:
         st.info(t("empty_results", current_lang))
@@ -921,33 +958,34 @@ elif selected_nav == "results":
                 status_display = t("status_likely_ineligible", current_lang)
 
             # Display Hindi scheme name prominently if Hindi mode is active
-            display_name = res.get("hindi_name") if (current_lang == "hi" and res.get("hindi_name")) else res['scheme_name']
+            scheme_source = get_scheme_by_id(res.get("scheme_id"), ALL_SCHEMES) or {}
+            display_res = localize_scheme({**scheme_source, **res}, current_lang)
+            display_name = display_res.get("scheme_name", res['scheme_name'])
             secondary_name = f"<div style='font-size:0.85rem; color:#64748b;'>{res['scheme_name']}</div>" if (current_lang == "hi" and res.get("hindi_name")) else ""
 
-            st.markdown(
-                f"""
+            st.html(
+                textwrap.dedent(f"""
                 <div class="scheme-card {card_class}">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                         <div>
                             <span class="badge {badge_class}">{status_display}</span>
-                            <span class="badge badge-category">{res.get('category')}</span>
-                            <span class="badge badge-category">{res.get('scheme_level')}</span>
+                            <span class="badge badge-category">{display_res.get('category')}</span>
+                            <span class="badge badge-category">{ui_text('Central' if res.get('scheme_level') == 'Central' else 'State', 'केंद्र' if res.get('scheme_level') == 'Central' else 'राज्य')}</span>
                             <h3 style="margin: 0.3rem 0 0.1rem 0; color: #1e3a8a;">{display_name}</h3>
                             {secondary_name}
-                            <div style="font-size: 0.85rem; color: #64748b; margin-top: 0.3rem;">🏛️ {res.get('department')}</div>
+                            <div style="font-size: 0.85rem; color: #64748b; margin-top: 0.3rem;">🏛️ {display_res.get('department')}</div>
                         </div>
                         <div style="text-align: right;">
                             <div style="font-size: 1.3rem; font-weight: 700; color: #1e3a8a;">{res['relevance_score']}<span style="font-size: 0.85rem; color: #64748b;">/100</span></div>
                             <div style="font-size: 0.72rem; color: #64748b;" title="{res['score_disclaimer']}">{t('ranking_score', current_lang)} ℹ️</div>
                         </div>
                     </div>
-                    <p style="font-size: 0.92rem; color: #334155; margin-top: 0.5rem;">{res.get('short_description')}</p>
+                    <p style="font-size: 0.92rem; color: #334155; margin-top: 0.5rem;">{display_res.get('short_description')}</p>
                     <div style="background-color: #f8fafc; border-left: 3px solid #0f766e; padding: 0.6rem 0.8rem; border-radius: 4px; margin-bottom: 0.8rem;">
-                        <strong style="color: #0f766e;">{t('key_benefits', current_lang)}:</strong> {res.get('benefits')}
+                        <strong style="color: #0f766e;">{t('key_benefits', current_lang)}:</strong> {display_res.get('benefits')}
                     </div>
                 </div>
-                """,
-                unsafe_allow_html=True
+                """)
             )
 
             # Condition details expander
@@ -959,25 +997,28 @@ elif selected_nav == "results":
                     st.markdown(f"**{t('conditions_met', current_lang)}:**")
                     if res.get("satisfied_conditions"):
                         for sc in res["satisfied_conditions"]:
-                            st.markdown(f"- ✅ **{sc['rule']}**: {sc['detail']}")
+                            display_sc = localize_condition(sc, current_lang)
+                            st.markdown(f"- ✅ **{display_sc['rule']}**: {display_sc['detail']}")
                     else:
                         st.caption("कोई विशिष्ट शर्त अभी पुष्ट नहीं हुई है।" if current_lang == "hi" else "No specific conditions confirmed yet.")
 
                     if res.get("information_required"):
                         st.markdown(f"<br/>**{t('info_needed', current_lang)}:**", unsafe_allow_html=True)
                         for ic in res["information_required"]:
-                            st.markdown(f"- ⚠️ **{ic['rule']}**: {ic['action']}")
+                            display_ic = localize_condition(ic, current_lang)
+                            st.markdown(f"- ⚠️ **{display_ic['rule']}**: {display_ic['action']}")
 
                 with cond_col2:
                     st.markdown(f"**{t('conditions_unmet', current_lang)}:**")
                     if res.get("unsatisfied_conditions"):
                         for uc in res["unsatisfied_conditions"]:
-                            st.markdown(f"- ❌ **{uc['rule']}**: {uc.get('reason', uc['detail'])}")
+                            display_uc = localize_condition(uc, current_lang)
+                            st.markdown(f"- ❌ **{display_uc['rule']}**: {display_uc.get('reason', display_uc['detail'])}")
                     else:
                         st.markdown("*(कोई नहीं। सभी मूल्यांकन की गई शर्तें पूरी हैं!)*" if current_lang == "hi" else "*(None. All evaluated listed rules are satisfied!)*")
 
                     st.markdown(f"<br/>**{t('documents_needed', current_lang)}:**", unsafe_allow_html=True)
-                    for d in res.get("required_documents", []):
+                    for d in display_res.get("required_documents", []):
                         st.markdown(f"- 📄 {d}")
 
                 st.markdown("---")
@@ -1017,13 +1058,13 @@ elif selected_nav == "results":
 # -----------------------------------------------------------------------------
 elif selected_nav == "checklist":
     st.subheader(f"📋 {t('nav_checklist', current_lang)}")
-    st.write("Aggregated list of documents required for your potentially eligible schemes. Check off what you have ready!")
+    st.write(ui_text("Aggregated list of documents required for your potentially eligible schemes. Check off what you have ready!", "आपकी संभावित पात्र योजनाओं के लिए आवश्यक दस्तावेज़ों की संयुक्त सूची। जो दस्तावेज़ आपके पास हैं, उन्हें चुनें।"))
 
     checklist_data = aggregate_document_checklist(st.session_state["evaluated_schemes"])
 
     col_chk_top, col_chk_pdf = st.columns([3, 1])
     with col_chk_top:
-        st.info(f"📑 Total unique documents identified across your eligible schemes: **{checklist_data['total_documents']}**")
+        st.info(f"📑 {ui_text('Total unique documents identified across your eligible schemes:', 'आपकी पात्र योजनाओं में कुल अलग-अलग आवश्यक दस्तावेज़:')} **{checklist_data['total_documents']}**")
     with col_chk_pdf:
         # Generate Consolidated PDF on demand with error boundary
         try:
@@ -1084,9 +1125,10 @@ elif selected_nav == "checklist":
         st.warning("कोई दस्तावेज़ वर्तमान में आवश्यक नहीं है।" if current_lang == "hi" else "No documents currently required as no schemes are marked as potentially eligible. Check your profile details.")
     else:
         for cat_name, doc_items in categories.items():
-            st.markdown(f"#### 📂 {cat_name}")
+            display_category = DOCUMENT_CATEGORY_HI.get(cat_name, cat_name) if current_lang == "hi" else cat_name
+            st.markdown(f"#### 📂 {display_category}")
             for item in doc_items:
-                doc_name = item["document"]
+                doc_name = localize_document(item["document"], current_lang)
                 schemes_str = ", ".join(item["schemes"])
                 c_box, c_txt = st.columns([0.05, 0.95])
                 with c_box:
@@ -1149,7 +1191,7 @@ elif selected_nav == "ai_assistant":
         st.chat_message("user").write(user_query)
 
         # Generate response using AI Assistant module
-        with st.spinner("Analyzing verified scheme database..."):
+        with st.spinner(ui_text("Analyzing verified scheme database...", "सत्यापित योजनाओं के डेटा की जांच हो रही है...")):
             reply = ask_ai_assistant(
                 user_query,
                 st.session_state["user_profile"],
@@ -1163,9 +1205,8 @@ elif selected_nav == "ai_assistant":
 # 10. View 7: About the Project
 # -----------------------------------------------------------------------------
 elif selected_nav == "about":
-    st.subheader("ℹ️ About the Project: Government Scheme Navigator")
-    st.markdown(
-        """
+    st.subheader(f"ℹ️ {ui_text('About the Project: Government Scheme Navigator', 'परियोजना के बारे में: भारत सरकार योजना मार्गदर्शक')}")
+    about_english = """
         ### 🎯 Problem Statement & Mission
         India operates some of the world's most progressive social welfare programs. However, millions of eligible citizens
         fail to access their entitled benefits due to complex documentation, information fragmentation, and confusion
@@ -1193,7 +1234,30 @@ elif selected_nav == "about":
         3. **No Private Identifiers:** We strictly do not collect Aadhaar numbers, PAN, bank account numbers, or OTPs.
         4. **Transparent Verification:** State schemes are clearly distinguished from Central programs, and verification dates are published for every record.
         """
-    )
+    about_hindi = """
+        ### 🎯 समस्या और उद्देश्य
+        भारत में अनेक कल्याणकारी योजनाएं हैं, लेकिन जटिल दस्तावेज़ीकरण, बिखरी हुई जानकारी और पात्रता की शर्तों को समझने में कठिनाई के कारण कई नागरिक इनका लाभ नहीं ले पाते।
+
+        **भारत सरकार योजना मार्गदर्शक** एक खुला नागरिक-तकनीक प्रोजेक्ट है। यह योजनाओं की जानकारी पारदर्शी और नियम-आधारित तरीके से खोजने में मदद करता है।
+
+        ---
+
+        ### ⚙️ तकनीकी संरचना
+        - **वेब ऐप:** Streamlit पर बना द्विभाषी इंटरफ़ेस।
+        - **नियम प्रणाली:** Python में बना पारदर्शी नियम-आधारित मूल्यांकन; यह आयु, आय, निवास, कृषि भूमि और अन्य पात्रता शर्तें जांचता है।
+        - **एआई सहायक:** उपलब्ध योजना डेटा पर आधारित ऑफलाइन विकल्प और वैकल्पिक Google Gemini API सहायता।
+        - **दस्तावेज़ और पीडीएफ:** आवश्यक दस्तावेज़ों की सूची और प्रिंट करने योग्य रिपोर्ट।
+        - **डेटा:** केंद्र और राज्य सरकारों की 20 योजनाएं, जिनकी जानकारी संबंधित पोर्टलों से सत्यापित की गई है।
+
+        ---
+
+        ### 🛡️ जिम्मेदार उपयोग और सुरक्षा
+        1. **नियमों पर आधारित:** पात्रता का आकलन स्पष्ट नियमों से किया जाता है।
+        2. **जानकारी गढ़ी नहीं जाती:** ऐप योजनाएं, लाभ, समय-सीमा या आवेदन लिंक स्वयं नहीं बनाता।
+        3. **निजी पहचान विवरण नहीं:** आधार संख्या, पैन, बैंक खाता संख्या या ओटीपी एकत्र नहीं किए जाते।
+        4. **सत्यापन स्पष्ट:** राज्य और केंद्र की योजनाओं को अलग दिखाया जाता है और प्रत्येक रिकॉर्ड की सत्यापन तिथि दी जाती है।
+        """
+    st.markdown(textwrap.dedent(about_hindi if current_lang == "hi" else about_english))
 
 # -----------------------------------------------------------------------------
 # 11. Global Civic Disclaimer & Responsible AI Footer
@@ -1201,9 +1265,9 @@ elif selected_nav == "about":
 st.markdown(
     f"""
     <div class="app-footer">
-        <p><strong>Civic Notice & Disclaimer:</strong> {t('disclaimer_text', current_lang)}</p>
+        <p><strong>{ui_text('Civic Notice & Disclaimer', 'नागरिक सूचना और अस्वीकरण')}:</strong> {t('disclaimer_text', current_lang)}</p>
         <p style="margin-top: 0.5rem;">
-            National Government Portals: 
+            {ui_text('National Government Portals:', 'भारत सरकार के पोर्टल:')}
             <a href="https://www.myscheme.gov.in/" target="_blank">myScheme.gov.in</a> &bull; 
             <a href="https://india.gov.in/" target="_blank">india.gov.in</a> &bull; 
             <a href="https://scholarships.gov.in/" target="_blank">National Scholarship Portal</a> &bull; 
